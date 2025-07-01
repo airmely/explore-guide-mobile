@@ -35,3 +35,8 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
+/.idea/inspectionProfiles/Project_Default.xml
+/.idea/.gitignore
+/.idea/client.iml
+/.idea/modules.xml
+/.idea/vcs.xml
