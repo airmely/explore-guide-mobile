@@ -5,214 +5,293 @@ import {
   Image,
   TouchableOpacity,
   StyleSheet,
-  Alert,
+  Dimensions,
 } from 'react-native';
-import { GlassCard } from './GlassCard';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from './ThemeProvider';
+
+const { width } = Dimensions.get('window');
 
 interface Product {
   id: string;
   name: string;
+  image: string;
+  currentPrice?: number;
+  originalPrice?: number;
+  price?: number; // Для обратной совместимости
+  store?: string;
+  condition?: 'new' | 'used';
+  shipping?: string;
   category: string;
-  price: number;
-  image: string | null;
-  createdAt: string;
+  isTracked?: boolean;
+  isFavorite?: boolean;
 }
 
 interface ProductCardProps {
   product: Product;
-  onRemove?: (id: string) => void;
-  onAddToFavorites?: (product: Product) => void;
-  showRemoveButton?: boolean;
+  onPress?: (product: Product) => void;
+  onTrack?: (product: Product) => void;
+  onFavorite?: (product: Product) => void;
+  onAddToFavorites?: (product: Product) => void; // Для обратной совместимости
+  onRemove?: (id: string) => void; // Для обратной совместимости
+  showActions?: boolean;
+  showRemoveButton?: boolean; // Для обратной совместимости
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({
   product,
-  onRemove,
+  onPress,
+  onTrack,
+  onFavorite,
   onAddToFavorites,
+  onRemove,
+  showActions = true,
   showRemoveButton = false,
 }) => {
-  const handleRemove = () => {
-    Alert.alert(
-      'Удалить товар',
-      'Вы уверены, что хотите удалить этот товар из избранного?',
-      [
-        { text: 'Отмена', style: 'cancel' },
-        { text: 'Удалить', style: 'destructive', onPress: () => onRemove?.(product.id) },
-      ]
-    );
+  const { theme } = useTheme();
+
+  // Обратная совместимость со старым интерфейсом
+  const currentPrice = product.currentPrice ?? product.price ?? 0;
+  const originalPrice = product.originalPrice ?? product.price ?? 0;
+  const isTracked = product.isTracked ?? false;
+  const isFavorite = product.isFavorite ?? false;
+
+  const priceDrop = originalPrice - currentPrice;
+  const priceDropPercent = priceDrop > 0 ? ((priceDrop / originalPrice) * 100).toFixed(0) : '0';
+
+  const cardStyle = {
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.borderRadius.lg,
+    shadowColor: theme.colors.shadow,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
   };
 
-  const handleAddToFavorites = () => {
-    onAddToFavorites?.(product);
-  };
-
-  const formatPrice = (price: number | null | undefined) => {
-    if (price === null || price === undefined || isNaN(price)) {
-      return 'Цена не указана';
+  const handlePress = () => {
+    if (onPress) {
+      onPress(product);
     }
-    return `${price.toLocaleString('ru-RU')} ₽`;
+  };
+
+  const handleTrack = () => {
+    if (onTrack) {
+      onTrack(product);
+    }
+  };
+
+  const handleFavorite = () => {
+    if (onFavorite) {
+      onFavorite(product);
+    } else if (onAddToFavorites) {
+      onAddToFavorites(product);
+    }
+  };
+
+  const handleRemove = () => {
+    if (onRemove) {
+      onRemove(product.id);
+    }
   };
 
   return (
-    <GlassCard style={styles.card}>
+    <TouchableOpacity
+      style={[styles.container, cardStyle]}
+      onPress={handlePress}
+      activeOpacity={0.9}
+    >
       <View style={styles.imageContainer}>
-        {product.image ? (
-          <Image source={{ uri: product.image }} style={styles.image} />
-        ) : (
-          <View style={styles.imagePlaceholder}>
-            <Text style={styles.imagePlaceholderIcon}>📦</Text>
+        <Image
+          source={{ uri: product.image || 'https://via.placeholder.com/300x200/6366f1/ffffff?text=No+Image' }}
+          style={styles.image}
+        />
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.7)']}
+          style={styles.imageOverlay}
+        />
+
+        {priceDrop > 0 && (
+          <View style={[styles.priceDropBadge, { backgroundColor: theme.colors.success }]}>
+            <Text style={styles.priceDropText}>-{priceDropPercent}%</Text>
           </View>
         )}
-        
-        {/* Бейдж категории */}
-        <View style={styles.categoryBadge}>
-          <Text style={styles.categoryBadgeText}>{product.category}</Text>
-        </View>
+
+        {showActions && (
+          <View style={styles.actionButtons}>
+            {showRemoveButton ? (
+              <TouchableOpacity
+                style={[styles.actionButton, { backgroundColor: theme.colors.overlay }]}
+                onPress={handleRemove}
+              >
+                <Ionicons name="trash" size={20} color={theme.colors.error} />
+              </TouchableOpacity>
+            ) : (
+              <>
+                <TouchableOpacity
+                  style={[styles.actionButton, { backgroundColor: theme.colors.overlay }]}
+                  onPress={handleFavorite}
+                >
+                  <Ionicons
+                    name={isFavorite ? 'heart' : 'heart-outline'}
+                    size={20}
+                    color={isFavorite ? theme.colors.error : theme.colors.text}
+                  />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.actionButton, { backgroundColor: theme.colors.overlay }]}
+                  onPress={handleTrack}
+                >
+                  <Ionicons
+                    name={isTracked ? 'eye' : 'eye-outline'}
+                    size={20}
+                    color={isTracked ? theme.colors.primary : theme.colors.text}
+                  />
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        )}
       </View>
-      
+
       <View style={styles.content}>
-        <Text style={styles.name} numberOfLines={2}>
+        <Text style={[styles.name, { color: theme.colors.text }]} numberOfLines={2}>
           {product.name}
         </Text>
-        
+
         <View style={styles.priceContainer}>
-          <Text style={styles.priceLabel}>Цена:</Text>
-          <Text style={styles.price}>
-            {formatPrice(product.price)}
+          <Text style={[styles.currentPrice, { color: theme.colors.primary }]}>
+            ₽{currentPrice.toLocaleString()}
           </Text>
-        </View>
-        
-        <View style={styles.actions}>
-          {showRemoveButton ? (
-            <TouchableOpacity style={styles.removeButton} onPress={handleRemove}>
-              <Text style={styles.removeButtonIcon}>🗑️</Text>
-              <Text style={styles.removeButtonText}>Удалить</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity style={styles.addButton} onPress={handleAddToFavorites}>
-              <Text style={styles.addButtonIcon}>⭐</Text>
-              <Text style={styles.addButtonText}>В избранное</Text>
-            </TouchableOpacity>
+          {priceDrop > 0 && (
+            <Text style={[styles.originalPrice, { color: theme.colors.textSecondary }]}>
+              ₽{originalPrice.toLocaleString()}
+            </Text>
           )}
         </View>
+
+        <View style={styles.details}>
+          {product.store && (
+            <View style={[styles.badge, { backgroundColor: theme.colors.surface }]}>
+              <Text style={[styles.badgeText, { color: theme.colors.textSecondary }]}>
+                {product.store}
+              </Text>
+            </View>
+          )}
+
+          {product.condition && (
+            <View style={[styles.badge, { backgroundColor: theme.colors.surface }]}>
+              <Text style={[styles.badgeText, { color: theme.colors.textSecondary }]}>
+                {product.condition === 'new' ? 'Новый' : 'Б/У'}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {product.shipping && (
+          <Text style={[styles.shipping, { color: theme.colors.textSecondary }]}>
+            {product.shipping}
+          </Text>
+        )}
       </View>
-    </GlassCard>
+    </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
-  card: {
-    marginBottom: 20,
+  container: {
+    width: width * 0.9,
+    marginVertical: 8,
+    marginHorizontal: 16,
+    overflow: 'hidden',
   },
   imageContainer: {
     position: 'relative',
-    marginBottom: 16,
+    height: 200,
   },
   image: {
     width: '100%',
-    height: 180,
-    borderRadius: 16,
+    height: '100%',
+    resizeMode: 'cover',
   },
-  imagePlaceholder: {
-    width: '100%',
-    height: 180,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    borderStyle: 'dashed',
+  imageOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 60,
   },
-  imagePlaceholderIcon: {
-    fontSize: 48,
-  },
-  categoryBadge: {
+  priceDropBadge: {
     position: 'absolute',
     top: 12,
     left: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
-  categoryBadgeText: {
+  priceDropText: {
     color: '#fff',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
+  },
+  actionButtons: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  actionButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   content: {
-    flex: 1,
+    padding: 16,
   },
   name: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#fff',
-    marginBottom: 12,
-    lineHeight: 26,
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+    lineHeight: 22,
   },
   priceContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    gap: 8,
+    marginBottom: 12,
   },
-  priceLabel: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginRight: 8,
+  currentPrice: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  originalPrice: {
+    fontSize: 16,
+    textDecorationLine: 'line-through',
+  },
+  details: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 8,
+  },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  badgeText: {
+    fontSize: 12,
     fontWeight: '500',
   },
-  price: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#4CAF50',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  actions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-  },
-  addButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  addButtonIcon: {
-    fontSize: 16,
-    marginRight: 6,
-  },
-  addButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  removeButton: {
-    backgroundColor: 'rgba(244, 67, 54, 0.3)',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(244, 67, 54, 0.5)',
-  },
-  removeButtonIcon: {
-    fontSize: 16,
-    marginRight: 6,
-  },
-  removeButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
+  shipping: {
+    fontSize: 12,
+    fontStyle: 'italic',
   },
 }); 

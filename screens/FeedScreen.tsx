@@ -9,92 +9,137 @@ import {
   TextInput,
   Alert,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { PremiumBackground } from '../components/PremiumBackground';
-import { GlassCard } from '../components/GlassCard';
+import { useTheme } from '../components/ThemeProvider';
 import { ProductCard } from '../components/ProductCard';
+import { FilterBar, categoryFilters, conditionFilters, shippingFilters } from '../components/FilterBar';
+import { AdBanner } from '../components/AdBanner';
 
 interface Product {
   id: string;
   name: string;
+  image: string;
+  currentPrice: number;
+  originalPrice: number;
+  store: string;
+  condition: 'new' | 'used';
+  shipping: string;
   category: string;
-  price: number;
-  image: string | null;
-  createdAt: string;
+  isTracked: boolean;
+  isFavorite: boolean;
 }
 
-const categories = [
-  { id: 'all', name: 'Все', icon: '📦' },
-  { id: 'electronics', name: 'Электроника', icon: '📱' },
-  { id: 'clothing', name: 'Одежда', icon: '👕' },
-  { id: 'home', name: 'Дом и сад', icon: '🏠' },
-  { id: 'sports', name: 'Спорт', icon: '⚽' },
-  { id: 'books', name: 'Книги', icon: '📚' },
-  { id: 'toys', name: 'Игрушки', icon: '🎮' },
-  { id: 'other', name: 'Другое', icon: '📌' },
+// Моковые данные для демонстрации
+const mockProducts: Product[] = [
+  {
+    id: '1',
+    name: 'iPhone 15 Pro Max 256GB',
+    image: 'https://via.placeholder.com/300x200/6366f1/ffffff?text=iPhone+15',
+    currentPrice: 129990,
+    originalPrice: 149990,
+    store: 'Apple Store',
+    condition: 'new',
+    shipping: 'Бесплатная доставка',
+    category: 'electronics',
+    isTracked: false,
+    isFavorite: false,
+  },
+  {
+    id: '2',
+    name: 'MacBook Air M2 13" 256GB',
+    image: 'https://via.placeholder.com/300x200/8b5cf6/ffffff?text=MacBook+Air',
+    currentPrice: 99990,
+    originalPrice: 119990,
+    store: 'М.Видео',
+    condition: 'new',
+    shipping: 'Доставка 500₽',
+    category: 'electronics',
+    isTracked: true,
+    isFavorite: true,
+  },
+  {
+    id: '3',
+    name: 'Nike Air Max 270',
+    image: 'https://via.placeholder.com/300x200/10b981/ffffff?text=Nike+Air+Max',
+    currentPrice: 8990,
+    originalPrice: 12990,
+    store: 'Nike',
+    condition: 'new',
+    shipping: 'Бесплатная доставка',
+    category: 'sports',
+    isTracked: false,
+    isFavorite: false,
+  },
 ];
 
 const FeedScreen = () => {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState('all');
+  const { theme } = useTheme();
+  const [products, setProducts] = useState<Product[]>(mockProducts);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>(mockProducts);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
+  const [selectedShipping, setSelectedShipping] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadProducts = async () => {
-    try {
-      const storedProducts = await AsyncStorage.getItem('catalogProducts');
-      if (storedProducts) {
-        const parsedProducts = JSON.parse(storedProducts);
-        setProducts(parsedProducts);
-        setFilteredProducts(parsedProducts);
-      }
-    } catch (error) {
-      Alert.alert('Ошибка', 'Не удалось загрузить товары');
-    }
-  };
-
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadProducts();
+    // Здесь будет загрузка данных с сервера
+    await new Promise(resolve => setTimeout(resolve, 1000));
     setRefreshing(false);
   };
 
-  const handleAddToFavorites = async (product: Product) => {
-    try {
-      const existingFavorites = await AsyncStorage.getItem('favoriteProducts');
-      const favorites = existingFavorites ? JSON.parse(existingFavorites) : [];
-      
-      const isAlreadyFavorite = favorites.some((fav: Product) => fav.id === product.id);
-      
-      if (isAlreadyFavorite) {
-        Alert.alert('Информация', 'Товар уже в избранном');
-        return;
-      }
+  const handleProductPress = (product: Product) => {
+    Alert.alert('Товар', `Открыть детали ${product.name}`);
+  };
 
-      favorites.push(product);
-      await AsyncStorage.setItem('favoriteProducts', JSON.stringify(favorites));
-      Alert.alert('Успех', 'Товар добавлен в избранное');
-    } catch (error) {
-      Alert.alert('Ошибка', 'Не удалось добавить в избранное');
-    }
+  const handleTrackProduct = (product: Product) => {
+    const updatedProducts = products.map(p =>
+      p.id === product.id ? { ...p, isTracked: !p.isTracked } : p
+    );
+    setProducts(updatedProducts);
+  };
+
+  const handleFavoriteProduct = (product: Product) => {
+    const updatedProducts = products.map(p =>
+      p.id === product.id ? { ...p, isFavorite: !p.isFavorite } : p
+    );
+    setProducts(updatedProducts);
   };
 
   const filterProducts = () => {
     let filtered = products;
 
-    // Фильтрация по категории
-    if (selectedCategory !== 'all') {
-      filtered = filtered.filter(product => 
-        product.category.toLowerCase().includes(selectedCategory.toLowerCase())
+    // Фильтрация по категориям
+    if (selectedCategories.length > 0) {
+      filtered = filtered.filter(product =>
+        selectedCategories.includes(product.category)
       );
+    }
+
+    // Фильтрация по состоянию
+    if (selectedConditions.length > 0) {
+      filtered = filtered.filter(product =>
+        selectedConditions.includes(product.condition)
+      );
+    }
+
+    // Фильтрация по доставке
+    if (selectedShipping.length > 0) {
+      filtered = filtered.filter(product => {
+        if (selectedShipping.includes('free') && product.shipping.includes('Бесплатная')) return true;
+        if (selectedShipping.includes('paid') && product.shipping.includes('Доставка')) return true;
+        if (selectedShipping.includes('pickup') && product.shipping.includes('Самовывоз')) return true;
+        return false;
+      });
     }
 
     // Фильтрация по поиску
     if (searchQuery.trim()) {
       filtered = filtered.filter(product =>
         product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.category.toLowerCase().includes(searchQuery.toLowerCase())
+        product.store.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
@@ -102,178 +147,146 @@ const FeedScreen = () => {
   };
 
   useEffect(() => {
-    loadProducts();
-  }, []);
-
-  useEffect(() => {
     filterProducts();
-  }, [selectedCategory, searchQuery, products]);
-
-  const renderCategoryItem = ({ item }: { item: typeof categories[0] }) => (
-    <TouchableOpacity
-      style={[
-        styles.categoryItem,
-        selectedCategory === item.id && styles.categoryItemActive
-      ]}
-      onPress={() => setSelectedCategory(item.id)}
-    >
-      <Text style={styles.categoryIcon}>{item.icon}</Text>
-      <Text style={[
-        styles.categoryText,
-        selectedCategory === item.id && styles.categoryTextActive
-      ]}>
-        {item.name}
-      </Text>
-    </TouchableOpacity>
-  );
+  }, [selectedCategories, selectedConditions, selectedShipping, searchQuery, products]);
 
   const renderProduct = ({ item }: { item: Product }) => (
     <ProductCard
       product={item}
-      onAddToFavorites={handleAddToFavorites}
-      showRemoveButton={false}
+      onPress={handleProductPress}
+      onTrack={handleTrackProduct}
+      onFavorite={handleFavoriteProduct}
     />
   );
 
   const renderEmptyList = () => (
-    <GlassCard style={styles.emptyCard}>
-      <Text style={styles.emptyTitle}>
-        {searchQuery.trim() || selectedCategory !== 'all' 
-          ? 'Товары не найдены' 
-          : 'Нет товаров в каталоге'
-        }
+    <View style={[styles.emptyContainer, { backgroundColor: theme.colors.card }]}>
+      <Ionicons name="search" size={64} color={theme.colors.textSecondary} />
+      <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
+        Товары не найдены
       </Text>
-      <Text style={styles.emptySubtitle}>
-        {searchQuery.trim() || selectedCategory !== 'all'
-          ? 'Попробуйте изменить фильтры или поисковый запрос'
-          : 'Добавьте товары в каталог, чтобы они появились здесь'
-        }
+      <Text style={[styles.emptySubtitle, { color: theme.colors.textSecondary }]}>
+        Попробуйте изменить фильтры или поисковый запрос
       </Text>
-    </GlassCard>
+    </View>
   );
 
+  const inputStyle = {
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
+    color: theme.colors.text,
+  };
+
   return (
-    <PremiumBackground>
-      <View style={styles.container}>
-        <Text style={styles.title}>📋 Рекомендации</Text>
-        
-        {/* Поиск */}
-        <GlassCard style={styles.searchCard}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      {/* Поиск */}
+      <View style={styles.searchContainer}>
+        <View style={styles.searchWrapper}>
+          <Ionicons name="search" size={20} color={theme.colors.textSecondary} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, inputStyle]}
             placeholder="Поиск товаров..."
+            placeholderTextColor={theme.colors.textSecondary}
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholderTextColor="rgba(255, 255, 255, 0.6)"
-          />
-        </GlassCard>
-
-        {/* Категории */}
-        <View style={styles.categoriesContainer}>
-          <FlatList
-            data={categories}
-            keyExtractor={(item) => item.id}
-            renderItem={renderCategoryItem}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoriesList}
           />
         </View>
-
-        {/* Список товаров */}
-        <FlatList
-          data={filteredProducts}
-          keyExtractor={(item) => item.id}
-          renderItem={renderProduct}
-          contentContainerStyle={styles.productsList}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-          ListEmptyComponent={renderEmptyList}
-          showsVerticalScrollIndicator={false}
-        />
       </View>
-    </PremiumBackground>
+
+      {/* Фильтры */}
+      <FilterBar
+        filters={categoryFilters}
+        selectedFilters={selectedCategories}
+        onFilterChange={setSelectedCategories}
+        title="Категории"
+      />
+
+      <FilterBar
+        filters={conditionFilters}
+        selectedFilters={selectedConditions}
+        onFilterChange={setSelectedConditions}
+        title="Состояние"
+      />
+
+      <FilterBar
+        filters={shippingFilters}
+        selectedFilters={selectedShipping}
+        onFilterChange={setSelectedShipping}
+        title="Доставка"
+      />
+
+      {/* Рекламный баннер */}
+      <AdBanner
+        title="Премиум функции"
+        subtitle="Отслеживайте неограниченное количество товаров"
+        ctaText="Попробовать"
+        variant="premium"
+        onPress={() => Alert.alert('Премиум', 'Переход к премиум подписке')}
+      />
+
+      {/* Список товаров */}
+      <FlatList
+        data={filteredProducts}
+        keyExtractor={(item) => item.id}
+        renderItem={renderProduct}
+        contentContainerStyle={styles.productsList}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.colors.primary}
+          />
+        }
+        ListEmptyComponent={renderEmptyList}
+        showsVerticalScrollIndicator={false}
+      />
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 20,
-    textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+  searchContainer: {
+    padding: 16,
+    paddingBottom: 8,
   },
-  searchCard: {
-    marginBottom: 20,
+  searchWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   searchInput: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    flex: 1,
+    height: 48,
+    borderWidth: 1,
     borderRadius: 12,
-    padding: 16,
-    color: '#fff',
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  categoriesContainer: {
-    marginBottom: 20,
-  },
-  categoriesList: {
-    paddingHorizontal: 4,
-  },
-  categoryItem: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 20,
-    marginHorizontal: 4,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  categoryItemActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    borderColor: 'rgba(255, 255, 255, 0.5)',
-  },
-  categoryIcon: {
-    fontSize: 20,
-    marginBottom: 4,
-  },
-  categoryText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  categoryTextActive: {
-    fontWeight: '700',
+    fontSize: 16,
   },
   productsList: {
     paddingBottom: 20,
   },
-  emptyCard: {
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 40,
+    padding: 32,
+    margin: 16,
+    borderRadius: 16,
   },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#fff',
+    fontSize: 20,
+    fontWeight: '600',
+    marginTop: 16,
     marginBottom: 8,
+    textAlign: 'center',
   },
   emptySubtitle: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 16,
     textAlign: 'center',
-    paddingHorizontal: 20,
+    lineHeight: 24,
   },
 });
 

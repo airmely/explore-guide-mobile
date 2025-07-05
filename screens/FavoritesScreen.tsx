@@ -9,9 +9,11 @@ import {
   TouchableOpacity,
   TextInput,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { PremiumBackground } from '../components/PremiumBackground';
+import { useTheme } from '../components/ThemeProvider';
 import { ProductCard } from '../components/ProductCard';
+import { FilterBar, categoryFilters } from '../components/FilterBar';
 
 interface Product {
   id: string;
@@ -22,22 +24,12 @@ interface Product {
   createdAt: string;
 }
 
-const categories = [
-  { id: 'all', name: 'Все', icon: '📦' },
-  { id: 'electronics', name: 'Электроника', icon: '📱' },
-  { id: 'clothing', name: 'Одежда', icon: '👕' },
-  { id: 'home', name: 'Дом и сад', icon: '🏠' },
-  { id: 'sports', name: 'Спорт', icon: '⚽' },
-  { id: 'books', name: 'Книги', icon: '📚' },
-  { id: 'toys', name: 'Игрушки', icon: '🎮' },
-  { id: 'other', name: 'Другое', icon: '📌' },
-];
-
 const FavoritesScreen = () => {
+  const { theme } = useTheme();
   const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
   const [favoriteProducts, setFavoriteProducts] = useState<Product[]>([]);
   const [filteredFavorites, setFilteredFavorites] = useState<Product[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
@@ -68,7 +60,7 @@ const FavoritesScreen = () => {
   const handleAddToFavorites = async (product: Product) => {
     try {
       const isAlreadyFavorite = favoriteProducts.some(fav => fav.id === product.id);
-      
+
       if (isAlreadyFavorite) {
         Alert.alert('Информация', 'Товар уже в избранном');
         return;
@@ -77,7 +69,7 @@ const FavoritesScreen = () => {
       const updatedFavorites = [...favoriteProducts, product];
       setFavoriteProducts(updatedFavorites);
       await AsyncStorage.setItem('favoriteProducts', JSON.stringify(updatedFavorites));
-      
+
       Alert.alert('Успех', 'Товар добавлен в избранное');
     } catch (error) {
       Alert.alert('Ошибка', 'Не удалось добавить в избранное');
@@ -98,10 +90,10 @@ const FavoritesScreen = () => {
   const filterFavorites = () => {
     let filtered = favoriteProducts;
 
-    // Фильтрация по категории
-    if (selectedCategory !== 'all') {
-      filtered = filtered.filter(product => 
-        product.category.toLowerCase().includes(selectedCategory.toLowerCase())
+    // Фильтрация по категориям
+    if (selectedCategories.length > 0) {
+      filtered = filtered.filter(product =>
+        selectedCategories.includes(product.category)
       );
     }
 
@@ -122,25 +114,7 @@ const FavoritesScreen = () => {
 
   useEffect(() => {
     filterFavorites();
-  }, [selectedCategory, searchQuery, favoriteProducts]);
-
-  const renderCategoryItem = ({ item }: { item: typeof categories[0] }) => (
-    <TouchableOpacity
-      style={[
-        styles.categoryItem,
-        selectedCategory === item.id && styles.categoryItemActive
-      ]}
-      onPress={() => setSelectedCategory(item.id)}
-    >
-      <Text style={styles.categoryIcon}>{item.icon}</Text>
-      <Text style={[
-        styles.categoryText,
-        selectedCategory === item.id && styles.categoryTextActive
-      ]}>
-        {item.name}
-      </Text>
-    </TouchableOpacity>
-  );
+  }, [selectedCategories, searchQuery, favoriteProducts]);
 
   const renderCatalogProduct = ({ item }: { item: Product }) => (
     <ProductCard
@@ -159,24 +133,26 @@ const FavoritesScreen = () => {
   );
 
   const renderEmptyCatalog = () => (
-    <View style={styles.emptyContainer}>
-      <Text style={styles.emptyTitle}>Каталог пуст</Text>
-      <Text style={styles.emptySubtitle}>
+    <View style={[styles.emptyContainer, { backgroundColor: theme.colors.card }]}>
+      <Ionicons name="heart-outline" size={64} color={theme.colors.textSecondary} />
+      <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>Каталог пуст</Text>
+      <Text style={[styles.emptySubtitle, { color: theme.colors.textSecondary }]}>
         Добавьте товары в каталог, чтобы они появились здесь
       </Text>
     </View>
   );
 
   const renderEmptyFavorites = () => (
-    <View style={styles.emptyContainer}>
-      <Text style={styles.emptyTitle}>
-        {searchQuery.trim() || selectedCategory !== 'all' 
-          ? 'Избранные товары не найдены' 
+    <View style={[styles.emptyContainer, { backgroundColor: theme.colors.card }]}>
+      <Ionicons name="heart" size={64} color={theme.colors.textSecondary} />
+      <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
+        {searchQuery.trim() || selectedCategories.length > 0
+          ? 'Избранные товары не найдены'
           : 'Нет избранных товаров'
         }
       </Text>
-      <Text style={styles.emptySubtitle}>
-        {searchQuery.trim() || selectedCategory !== 'all'
+      <Text style={[styles.emptySubtitle, { color: theme.colors.textSecondary }]}>
+        {searchQuery.trim() || selectedCategories.length > 0
           ? 'Попробуйте изменить фильтры или поисковый запрос'
           : 'Добавьте товары из каталога в избранное'
         }
@@ -184,152 +160,99 @@ const FavoritesScreen = () => {
     </View>
   );
 
+  const inputStyle = {
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
+    color: theme.colors.text,
+  };
+
   return (
-    <PremiumBackground>
-      <View style={styles.container}>
-        <Text style={styles.title}>⭐ Избранные товары</Text>
-        
-        {/* Поиск */}
-        <View style={styles.searchCard}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      {/* Поиск */}
+      <View style={styles.searchContainer}>
+        <View style={styles.searchWrapper}>
+          <Ionicons name="search" size={20} color={theme.colors.textSecondary} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, inputStyle]}
             placeholder="Поиск в избранном..."
+            placeholderTextColor={theme.colors.textSecondary}
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholderTextColor="rgba(255, 255, 255, 0.6)"
           />
         </View>
-
-        {/* Категории */}
-        <View style={styles.categoriesContainer}>
-          <FlatList
-            data={categories}
-            keyExtractor={(item) => item.id}
-            renderItem={renderCategoryItem}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoriesList}
-          />
-        </View>
-        
-        <FlatList
-          data={filteredFavorites}
-          keyExtractor={(item) => item.id}
-          renderItem={renderFavoriteProduct}
-          contentContainerStyle={styles.listContainer}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-          ListEmptyComponent={renderEmptyFavorites}
-        />
-
-        {catalogProducts.length > 0 && (
-          <>
-            <Text style={styles.sectionTitle}>📦 Товары из каталога</Text>
-            <FlatList
-              data={catalogProducts}
-              keyExtractor={(item) => item.id}
-              renderItem={renderCatalogProduct}
-              contentContainerStyle={styles.listContainer}
-              ListEmptyComponent={renderEmptyCatalog}
-              scrollEnabled={false}
-            />
-          </>
-        )}
       </View>
-    </PremiumBackground>
+
+      {/* Фильтры */}
+      <FilterBar
+        filters={categoryFilters}
+        selectedFilters={selectedCategories}
+        onFilterChange={setSelectedCategories}
+        title="Категории"
+      />
+
+      {/* Список избранных товаров */}
+      <FlatList
+        data={filteredFavorites}
+        keyExtractor={(item) => item.id}
+        renderItem={renderFavoriteProduct}
+        contentContainerStyle={styles.productsList}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.colors.primary}
+          />
+        }
+        ListEmptyComponent={renderEmptyFavorites}
+        showsVerticalScrollIndicator={false}
+      />
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 20,
-    textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+  searchContainer: {
+    padding: 16,
+    paddingBottom: 8,
   },
-  searchCard: {
-    marginBottom: 20,
+  searchWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   searchInput: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    flex: 1,
+    height: 48,
+    borderWidth: 1,
     borderRadius: 12,
-    padding: 16,
-    color: '#fff',
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  categoriesContainer: {
-    marginBottom: 20,
-  },
-  categoriesList: {
-    paddingHorizontal: 4,
-  },
-  categoryItem: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 20,
-    marginHorizontal: 4,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    fontSize: 16,
   },
-  categoryItemActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    borderColor: 'rgba(255, 255, 255, 0.5)',
-  },
-  categoryIcon: {
-    fontSize: 20,
-    marginBottom: 4,
-  },
-  categoryText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  categoryTextActive: {
-    fontWeight: '700',
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#fff',
-    marginTop: 30,
-    marginBottom: 20,
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  listContainer: {
+  productsList: {
     paddingBottom: 20,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 60,
+    padding: 32,
+    margin: 16,
+    borderRadius: 16,
   },
   emptyTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#fff',
+    fontWeight: '600',
+    marginTop: 16,
     marginBottom: 8,
+    textAlign: 'center',
   },
   emptySubtitle: {
     fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
     textAlign: 'center',
-    paddingHorizontal: 20,
+    lineHeight: 24,
   },
 });
 
