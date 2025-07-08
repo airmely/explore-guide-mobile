@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../components/ThemeProvider';
 import { NeumorphicCard } from '../components/NeumorphicCard';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const SettingsScreen: React.FC = () => {
     const { theme, toggleTheme } = useTheme();
@@ -18,29 +19,51 @@ export const SettingsScreen: React.FC = () => {
     const [priceAlerts, setPriceAlerts] = useState(true);
     const [emailNotifications, setEmailNotifications] = useState(false);
     const [isPremium, setIsPremium] = useState(false);
+    // const [autoSessionClear, setAutoSessionClear] = useState(true);
 
-      const handleLogout = () => {
-    Alert.alert(
-      'Выход',
-      'Вы уверены, что хотите выйти из аккаунта?',
-      [
-        { text: 'Отмена', style: 'cancel' },
-        { 
-          text: 'Выйти', 
-          style: 'destructive', 
-          onPress: async () => {
-            try {
-              await AsyncStorage.removeItem('authToken');
-              // Здесь можно добавить навигацию к экрану аутентификации
-              console.log('Logout successful');
-            } catch (error) {
-              console.log('Error during logout:', error);
-            }
-          }
-        },
-      ]
-    );
-  };
+    // useEffect(() => {
+    //     // Load auto session clear flag from storage
+    //     (async () => {
+    //         try {
+    //             const value = await AsyncStorage.getItem('autoSessionClear');
+    //             if (value !== null) setAutoSessionClear(value === 'true');
+    //         } catch (e) {
+    //             console.log('Error loading autoSessionClear:', e);
+    //         }
+    //     })();
+    // }, []);
+
+    // const handleAutoSessionClearChange = async (value: boolean) => {
+    //     setAutoSessionClear(value);
+    //     try {
+    //         await AsyncStorage.setItem('autoSessionClear', value.toString());
+    //     } catch (e) {
+    //         console.log('Error saving autoSessionClear:', e);
+    //     }
+    // };
+
+    const handleLogout = () => {
+        Alert.alert(
+            'Выход',
+            'Вы уверены, что хотите выйти из аккаунта?',
+            [
+                { text: 'Отмена', style: 'cancel' },
+                {
+                    text: 'Выйти',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await AsyncStorage.removeItem('authToken');
+                            // Здесь можно добавить навигацию к экрану аутентификации
+                            console.log('Logout successful');
+                        } catch (error) {
+                            console.log('Error during logout:', error);
+                        }
+                    }
+                },
+            ]
+        );
+    };
 
     const handleUpgradeToPremium = () => {
         Alert.alert(

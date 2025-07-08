@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
     View,
     Text,
@@ -24,6 +24,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
     const [otp, setOtp] = useState('');
     const [isOtpSent, setIsOtpSent] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const otpRefs = [useRef(null), useRef(null), useRef(null), useRef(null)]; // OTP input refs
 
     const formatPhoneNumber = (text: string) => {
         const cleaned = text.replace(/\D/g, '');
@@ -141,16 +142,31 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
                                 {[0, 1, 2, 3].map((index) => (
                                     <TextInput
                                         key={index}
+                                        ref={otpRefs[index]}
                                         style={[styles.otpInput, inputStyle]}
                                         value={otp[index] || ''}
                                         onChangeText={(text) => {
                                             const newOtp = otp.split('');
                                             newOtp[index] = text;
                                             setOtp(newOtp.join(''));
+                                            // Auto focus next input if text entered
+                                            if (text && index < 3) {
+                                                otpRefs[index + 1].current?.focus();
+                                            }
+                                            // Auto blur if last digit entered
+                                            if (text && index === 3) {
+                                                otpRefs[index].current?.blur();
+                                            }
                                         }}
                                         keyboardType="number-pad"
                                         maxLength={1}
                                         textAlign="center"
+                                        returnKeyType="next"
+                                        onKeyPress={({ nativeEvent }) => {
+                                            if (nativeEvent.key === 'Backspace' && !otp[index] && index > 0) {
+                                                otpRefs[index - 1].current?.focus();
+                                            }
+                                        }}
                                     />
                                 ))}
                             </View>

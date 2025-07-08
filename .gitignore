@@ -40,3 +40,4 @@ yarn-error.*
 /.idea/client.iml
 /.idea/modules.xml
 /.idea/vcs.xml
+/.idea

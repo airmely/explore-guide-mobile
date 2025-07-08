@@ -129,22 +129,29 @@ const AppContent = () => {
   const { theme } = useTheme();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  // const [autoSessionClear, setAutoSessionClear] = useState(true); // Больше не нужен
 
   useEffect(() => {
     checkAuthStatus();
+    // (async () => {
+    //   try {
+    //     const value = await AsyncStorage.getItem('autoSessionClear');
+    //     if (value !== null) setAutoSessionClear(value === 'true');
+    //   } catch (e) {
+    //     console.log('Error loading autoSessionClear:', e);
+    //   }
+    // })();
   }, []);
 
-  useEffect(() => {
-    const handleAppStateChange = (nextAppState: AppStateStatus) => {
-      if (nextAppState === 'background' || nextAppState === 'inactive') {
-        // При выходе из приложения - логаут
-        handleLogout();
-      }
-    };
-
-    const subscription = AppState.addEventListener('change', handleAppStateChange);
-    return () => subscription?.remove();
-  }, []);
+  // useEffect(() => {
+  //   const handleAppStateChange = (nextAppState: AppStateStatus) => {
+  //     if ((nextAppState === 'background' || nextAppState === 'inactive') && autoSessionClear) {
+  //       handleLogout();
+  //     }
+  //   };
+  //   const subscription = AppState.addEventListener('change', handleAppStateChange);
+  //   return () => subscription?.remove();
+  // }, [autoSessionClear]);
 
   const checkAuthStatus = async () => {
     try {
