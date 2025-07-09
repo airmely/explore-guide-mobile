@@ -14,6 +14,7 @@ import FavoritesScreen from './screens/FavoritesScreen';
 import FeedScreen from './screens/FeedScreen';
 import TrackedProductsScreen from './screens/TrackedProductsScreen';
 import { Ionicons } from '@expo/vector-icons';
+import apiClient from './services/api';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -159,19 +160,19 @@ const AppContent = () => {
 
   const handleAuthSuccess = async () => {
     try {
-      await AsyncStorage.setItem('authToken', 'dummy-token');
+      // Token уже сохранен в apiClient после успешной верификации OTP
       setIsAuthenticated(true);
     } catch (error) {
-      console.log('Error saving auth token:', error);
+      console.log('Error during auth success:', error);
     }
   };
 
   const handleLogout = async () => {
     try {
-      await AsyncStorage.removeItem('authToken');
+      await apiClient.logout();
       setIsAuthenticated(false);
     } catch (error) {
-      console.log('Error removing auth token:', error);
+      console.log('Error during logout:', error);
     }
   };
 
