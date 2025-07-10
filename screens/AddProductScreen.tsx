@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../components/ThemeProvider';
 import { NeumorphicCard } from '../components/NeumorphicCard';
 import { FilterBar, categoryFilters } from '../components/FilterBar';
+import apiClient from '../services/api';
+import { Category, ProductCreate } from '../types/api';
 
 interface Product {
   id: string;
@@ -31,6 +33,21 @@ const AddProductScreen = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [price, setPrice] = useState('');
   const [imageUrl, setImageUrl] = useState('');
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const loadCategories = async () => {
+    try {
+      const categoryList = await apiClient.getCategories();
+      setCategories(categoryList);
+    } catch (error) {
+      console.error('Error loading categories:', error);
+    }
+  };
+
+  useEffect(() => {
+    loadCategories();
+  }, []);
 
   const handleAddProduct = async () => {
     if (!name.trim() || !selectedCategory || !price.trim()) {
@@ -44,21 +61,24 @@ const AddProductScreen = () => {
       return;
     }
 
+    setLoading(true);
     try {
-      const newProduct: Product = {
-        id: Date.now().toString(),
+      const selectedCategoryObj = categories.find(cat => cat.name.toLowerCase() === selectedCategory);
+      if (!selectedCategoryObj) {
+        Alert.alert('Ошибка', 'Выберите категорию из списка');
+        return;
+      }
+
+      const productData: ProductCreate = {
         name: name.trim(),
-        category: selectedCategory,
+        description: '',
         price: priceValue,
-        image: imageUrl.trim() || null,
-        createdAt: new Date().toISOString(),
+        category_id: selectedCategoryObj.id,
+        condition: 'new',
+        images: imageUrl.trim() ? [{ url: imageUrl.trim(), is_primary: true }] : [],
       };
 
-      // Сохраняем в каталог
-      const existingProducts = await AsyncStorage.getItem('catalogProducts');
-      const products = existingProducts ? JSON.parse(existingProducts) : [];
-      products.push(newProduct);
-      await AsyncStorage.setItem('catalogProducts', JSON.stringify(products));
+      await apiClient.createProduct(productData);
 
       Alert.alert('Успех', 'Товар добавлен в каталог', [
         {
@@ -71,7 +91,10 @@ const AddProductScreen = () => {
         }
       ]);
     } catch (error) {
-      Alert.alert('Ошибка', 'Не удалось сохранить товар');
+      const errorMessage = error instanceof Error ? error.message : 'Не удалось сохранить товар';
+      Alert.alert('Ошибка', errorMessage);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -155,11 +178,14 @@ const AddProductScreen = () => {
             </View>
 
             <TouchableOpacity
-              style={[styles.button, buttonStyle]}
+              style={[styles.button, buttonStyle, loading && { opacity: 0.6 }]}
               onPress={handleAddProduct}
+              disabled={loading}
             >
-              <Ionicons name="add-circle" size={24} color="#fff" />
-              <Text style={styles.buttonText}>Добавить товар</Text>
+              <Ionicons name={loading ? "hourglass" : "add-circle"} size={24} color="#fff" />
+              <Text style={styles.buttonText}>
+                {loading ? 'Добавление...' : 'Добавить товар'}
+              </Text>
             </TouchableOpacity>
           </View>
         </NeumorphicCard>

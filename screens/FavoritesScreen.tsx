@@ -14,6 +14,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../components/ThemeProvider';
 import { ProductCard } from '../components/ProductCard';
 import { FilterBar, categoryFilters } from '../components/FilterBar';
+import apiClient from '../services/api';
+import { Favorite, Product as ApiProduct } from '../types/api';
 
 interface Product {
   id: string;
@@ -24,6 +26,16 @@ interface Product {
   createdAt: string;
 }
 
+// Helper function to convert API product to local format
+const convertApiProductToLocal = (apiProduct: ApiProduct): Product => ({
+  id: apiProduct.id.toString(),
+  name: apiProduct.name,
+  category: apiProduct.category.name.toLowerCase(),
+  price: apiProduct.price,
+  image: apiProduct.images?.[0]?.url || null,
+  createdAt: apiProduct.created_at,
+});
+
 const FavoritesScreen = () => {
   const { theme } = useTheme();
   const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
@@ -32,22 +44,27 @@ const FavoritesScreen = () => {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const loadData = async () => {
     try {
-      // Загружаем товары из каталога
-      const storedCatalog = await AsyncStorage.getItem('catalogProducts');
-      if (storedCatalog) {
-        setCatalogProducts(JSON.parse(storedCatalog));
-      }
+      // Загружаем избранные товары из API
+      const favoritesResponse = await apiClient.getFavorites();
+      const convertedFavorites = favoritesResponse.favorites.map(fav =>
+        convertApiProductToLocal(fav.product)
+      );
+      setFavoriteProducts(convertedFavorites);
 
-      // Загружаем избранные товары
-      const storedFavorites = await AsyncStorage.getItem('favoriteProducts');
-      if (storedFavorites) {
-        setFavoriteProducts(JSON.parse(storedFavorites));
-      }
+      // Загружаем товары из каталога (для демонстрации)
+      const productsResponse = await apiClient.getProducts({ page: 1, limit: 10 });
+      const convertedProducts = productsResponse.products.map(convertApiProductToLocal);
+      setCatalogProducts(convertedProducts);
+
     } catch (error) {
+      console.error('Error loading favorites:', error);
       Alert.alert('Ошибка', 'Не удалось загрузить данные');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -66,24 +83,29 @@ const FavoritesScreen = () => {
         return;
       }
 
+      await apiClient.addToFavorites(parseInt(product.id));
+      
       const updatedFavorites = [...favoriteProducts, product];
       setFavoriteProducts(updatedFavorites);
-      await AsyncStorage.setItem('favoriteProducts', JSON.stringify(updatedFavorites));
 
       Alert.alert('Успех', 'Товар добавлен в избранное');
     } catch (error) {
-      Alert.alert('Ошибка', 'Не удалось добавить в избранное');
+      const errorMessage = error instanceof Error ? error.message : 'Не удалось добавить в избранное';
+      Alert.alert('Ошибка', errorMessage);
     }
   };
 
   const handleRemoveFromFavorites = async (id: string) => {
     try {
+      await apiClient.removeFromFavorites(parseInt(id));
+      
       const updatedFavorites = favoriteProducts.filter(product => product.id !== id);
       setFavoriteProducts(updatedFavorites);
-      await AsyncStorage.setItem('favoriteProducts', JSON.stringify(updatedFavorites));
+      
       Alert.alert('Успех', 'Товар удален из избранного');
     } catch (error) {
-      Alert.alert('Ошибка', 'Не удалось удалить товар');
+      const errorMessage = error instanceof Error ? error.message : 'Не удалось удалить товар';
+      Alert.alert('Ошибка', errorMessage);
     }
   };
 
@@ -166,6 +188,17 @@ const FavoritesScreen = () => {
     color: theme.colors.text,
   };
 
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centerContent, { backgroundColor: theme.colors.background }]}>
+        <Ionicons name="hourglass" size={64} color={theme.colors.primary} />
+        <Text style={[styles.loadingText, { color: theme.colors.text }]}>
+          Загрузка избранного...
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Поиск */}
@@ -213,6 +246,15 @@ const FavoritesScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 18,
+    marginTop: 16,
+    textAlign: 'center',
   },
   searchContainer: {
     padding: 16,

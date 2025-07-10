@@ -13,8 +13,11 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../components/ThemeProvider';
 import { ProductCard } from '../components/ProductCard';
-import { FilterBar, categoryFilters, conditionFilters, shippingFilters } from '../components/FilterBar';
+import { FilterBar, conditionFilters, shippingFilters } from '../components/FilterBar';
+import { CategoryFilter } from '../components/CategoryFilter';
 import { AdBanner } from '../components/AdBanner';
+import apiClient from '../services/api';
+import { Product as ApiProduct, Category } from '../types/api';
 
 interface Product {
   id: string;
@@ -73,22 +76,66 @@ const mockProducts: Product[] = [
   },
 ];
 
+// Helper function to convert API product to local format
+const convertApiProduct = (apiProduct: ApiProduct): Product => ({
+  id: apiProduct.id.toString(),
+  name: apiProduct.name,
+  image: apiProduct.images?.[0]?.url || 'https://via.placeholder.com/300x200/6366f1/ffffff?text=No+Image',
+  currentPrice: apiProduct.price,
+  originalPrice: apiProduct.price * 1.2, // Mock original price for demo
+  store: apiProduct.seller.email,
+  condition: apiProduct.condition,
+  shipping: 'Бесплатная доставка', // Mock shipping
+  category: apiProduct.category.name.toLowerCase(),
+  isTracked: false, // Will be loaded separately
+  isFavorite: false, // Will be loaded separately
+});
+
 const FeedScreen = () => {
   const { theme } = useTheme();
-  const [products, setProducts] = useState<Product[]>(mockProducts);
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>(mockProducts);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
   const [selectedShipping, setSelectedShipping] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const loadProducts = async () => {
+    try {
+      const response = await apiClient.getProducts({ page: 1, limit: 20 });
+      const convertedProducts = response.products.map(convertApiProduct);
+      setProducts(convertedProducts);
+    } catch (error) {
+      console.error('Error loading products:', error);
+      // Fallback to mock data if API fails
+      setProducts(mockProducts);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadCategories = async () => {
+    try {
+      const categoriesResponse = await apiClient.getCategoriesList();
+      setCategories(categoriesResponse);
+    } catch (error) {
+      console.error('Error loading categories:', error);
+    }
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
-    // Здесь будет загрузка данных с сервера
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await loadProducts();
     setRefreshing(false);
   };
+
+  useEffect(() => {
+    loadProducts();
+    loadCategories();
+  }, []);
 
   const handleProductPress = (product: Product) => {
     Alert.alert('Товар', `Открыть детали ${product.name}`);
@@ -177,6 +224,17 @@ const FeedScreen = () => {
     color: theme.colors.text,
   };
 
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centerContent, { backgroundColor: theme.colors.background }]}>
+        <Ionicons name="hourglass" size={64} color={theme.colors.primary} />
+        <Text style={[styles.loadingText, { color: theme.colors.text }]}>
+          Загрузка товаров...
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Поиск */}
@@ -194,11 +252,10 @@ const FeedScreen = () => {
       </View>
 
       {/* Фильтры */}
-      <FilterBar
-        filters={categoryFilters}
-        selectedFilters={selectedCategories}
-        onFilterChange={setSelectedCategories}
-        title="Категории"
+      <CategoryFilter
+        categories={categories}
+        selectedCategories={selectedCategories}
+        onCategoryChange={setSelectedCategories}
       />
 
       <FilterBar
@@ -247,6 +304,15 @@ const FeedScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 18,
+    marginTop: 16,
+    textAlign: 'center',
   },
   searchContainer: {
     padding: 16,

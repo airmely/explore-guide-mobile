@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../components/ThemeProvider';
+import apiClient from '../services/api';
 
 interface AuthScreenProps {
     onAuthSuccess: () => void;
@@ -42,12 +43,13 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
 
         setIsLoading(true);
         try {
-            // Здесь будет API вызов для отправки OTP
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            const cleanPhoneNumber = phoneNumber.replace(/\D/g, '');
+            const response = await apiClient.sendOtp(cleanPhoneNumber);
             setIsOtpSent(true);
-            Alert.alert('Успешно', 'Код подтверждения отправлен на ваш номер');
+            Alert.alert('Успешно', response.message || 'Код подтверждения отправлен на ваш номер');
         } catch (error) {
-            Alert.alert('Ошибка', 'Не удалось отправить код. Попробуйте еще раз.');
+            const errorMessage = error instanceof Error ? error.message : 'Не удалось отправить код. Попробуйте еще раз.';
+            Alert.alert('Ошибка', errorMessage);
         } finally {
             setIsLoading(false);
         }
@@ -61,11 +63,17 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
 
         setIsLoading(true);
         try {
-            // Здесь будет API вызов для проверки OTP
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            onAuthSuccess();
+            const cleanPhoneNumber = phoneNumber.replace(/\D/g, '');
+            const response = await apiClient.verifyOtp(cleanPhoneNumber, otp);
+
+            if (response.success) {
+                onAuthSuccess();
+            } else {
+                Alert.alert('Ошибка', response.message || 'Неверный код. Попробуйте еще раз.');
+            }
         } catch (error) {
-            Alert.alert('Ошибка', 'Неверный код. Попробуйте еще раз.');
+            const errorMessage = error instanceof Error ? error.message : 'Неверный код. Попробуйте еще раз.';
+            Alert.alert('Ошибка', errorMessage);
         } finally {
             setIsLoading(false);
         }
