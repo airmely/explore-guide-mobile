@@ -29,7 +29,19 @@ export interface VerifyOtpResponse {
 export interface Category {
     id: number;
     name: string;
+    description?: string;
     icon?: string;
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface CategoriesListResponse {
+    categories: Category[];
+    total: number;
+    page: number;
+    limit: number;
+    total_pages: number;
 }
 
 export interface ProductImage {

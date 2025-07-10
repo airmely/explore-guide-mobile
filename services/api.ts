@@ -12,6 +12,7 @@ import {
     FavoriteCreate,
     Favorite,
     Category,
+    CategoriesListResponse,
     ApiError,
 } from '../types/api';
 
@@ -21,9 +22,19 @@ class ApiClient {
 
     constructor() {
         this.baseURL = `${config.API_BASE_URL}/api/v1`;
-        this.loadToken();
+        // Не загружаем токен автоматически, используем init()
     }
 
+    /**
+     * Load token from AsyncStorage and set to memory
+     */
+    public async init() {
+        await this.loadToken();
+    }
+
+    /**
+     * Load token from AsyncStorage
+     */
     private async loadToken() {
         try {
             this.token = await AsyncStorage.getItem('authToken');
@@ -32,6 +43,9 @@ class ApiClient {
         }
     }
 
+    /**
+     * Save token to AsyncStorage and memory
+     */
     private async saveToken(token: string) {
         try {
             await AsyncStorage.setItem('authToken', token);
@@ -41,6 +55,9 @@ class ApiClient {
         }
     }
 
+    /**
+     * Remove token from AsyncStorage and memory
+     */
     private async removeToken() {
         try {
             await AsyncStorage.removeItem('authToken');
@@ -160,8 +177,32 @@ class ApiClient {
         });
     }
 
-    async getCategories(): Promise<Category[]> {
-        return this.request<Category[]>('/products/categories/list');
+    async getCategories(params: {
+        page?: number;
+        limit?: number;
+        search?: string;
+        active_only?: boolean;
+    } = {}): Promise<CategoriesListResponse> {
+        const queryParams = new URLSearchParams();
+
+        Object.entries(params).forEach(([key, value]) => {
+            if (value !== undefined && value !== null) {
+                queryParams.append(key, value.toString());
+            }
+        });
+
+        const queryString = queryParams.toString();
+        const endpoint = `/categories${queryString ? `?${queryString}` : ''}`;
+
+        return this.request<CategoriesListResponse>(endpoint);
+    }
+
+    async getCategoriesList(): Promise<Category[]> {
+        return this.request<Category[]>('/categories/list');
+    }
+
+    async getCategory(id: number): Promise<Category> {
+        return this.request<Category>(`/categories/${id}`);
     }
 
     // Favorites methods

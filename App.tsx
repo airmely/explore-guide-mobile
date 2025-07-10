@@ -132,7 +132,12 @@ const AppContent = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    checkAuthStatus();
+    // Ensure token is loaded before checking auth status
+    const initialize = async () => {
+      await apiClient.init();
+      await checkAuthStatus();
+    };
+    initialize();
   }, []);
 
   useEffect(() => {

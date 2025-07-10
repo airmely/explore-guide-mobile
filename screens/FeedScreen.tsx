@@ -13,7 +13,8 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../components/ThemeProvider';
 import { ProductCard } from '../components/ProductCard';
-import { FilterBar, categoryFilters, conditionFilters, shippingFilters } from '../components/FilterBar';
+import { FilterBar, conditionFilters, shippingFilters } from '../components/FilterBar';
+import { CategoryFilter } from '../components/CategoryFilter';
 import { AdBanner } from '../components/AdBanner';
 import apiClient from '../services/api';
 import { Product as ApiProduct, Category } from '../types/api';
@@ -94,6 +95,7 @@ const FeedScreen = () => {
   const { theme } = useTheme();
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
   const [selectedShipping, setSelectedShipping] = useState<string[]>([]);
@@ -115,6 +117,15 @@ const FeedScreen = () => {
     }
   };
 
+  const loadCategories = async () => {
+    try {
+      const categoriesResponse = await apiClient.getCategoriesList();
+      setCategories(categoriesResponse);
+    } catch (error) {
+      console.error('Error loading categories:', error);
+    }
+  };
+
   const onRefresh = async () => {
     setRefreshing(true);
     await loadProducts();
@@ -123,6 +134,7 @@ const FeedScreen = () => {
 
   useEffect(() => {
     loadProducts();
+    loadCategories();
   }, []);
 
   const handleProductPress = (product: Product) => {
@@ -240,11 +252,10 @@ const FeedScreen = () => {
       </View>
 
       {/* Фильтры */}
-      <FilterBar
-        filters={categoryFilters}
-        selectedFilters={selectedCategories}
-        onFilterChange={setSelectedCategories}
-        title="Категории"
+      <CategoryFilter
+        categories={categories}
+        selectedCategories={selectedCategories}
+        onCategoryChange={setSelectedCategories}
       />
 
       <FilterBar
